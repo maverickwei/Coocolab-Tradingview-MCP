@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { registerHealthTools } from "./tools/health.js";
@@ -15,6 +16,8 @@ import { registerUiTools } from "./tools/ui.js";
 import { registerPaneTools } from "./tools/pane.js";
 import { registerTabTools } from "./tools/tab.js";
 import { registerMorningTools } from "./tools/morning.js";
+import { registerLineTools } from "./tools/line.js";
+import { startWebhookServer } from "./webhook.js";
 
 const server = new McpServer(
   {
@@ -87,6 +90,7 @@ registerUiTools(server);
 registerPaneTools(server);
 registerTabTools(server);
 registerMorningTools(server);
+registerLineTools(server);
 
 // Startup notice (stderr so it doesn't interfere with MCP stdio protocol)
 process.stderr.write(
@@ -95,6 +99,9 @@ process.stderr.write(
 process.stderr.write(
   "   Ensure your usage complies with TradingView's Terms of Use.\n\n",
 );
+
+// Start LINE webhook HTTP server (runs alongside stdio MCP transport)
+startWebhookServer();
 
 // Start stdio transport
 const transport = new StdioServerTransport();
