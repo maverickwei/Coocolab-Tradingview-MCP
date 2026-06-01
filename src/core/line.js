@@ -1,33 +1,15 @@
 import https from 'https';
 
 /**
- * Send a LINE push message via the Messaging API.
- * Reads LINE_CHANNEL_TOKEN and LINE_USER_ID from process.env.
+ * Push a LINE message to a single user with retry logic.
  */
-export async function pushMessage(text) {
-  const token = process.env.LINE_CHANNEL_TOKEN;
-
-  // Collect all configured user IDs (LINE_USER_ID, LINE_USER_ID_2, ...)
-  const userIds = Object.entries(process.env)
-    .filter(([k]) => k === 'LINE_USER_ID' || k.startsWith('LINE_USER_ID_'))
-    .map(([, v]) => v)
-    .filter(Boolean);
-
-  if (!token || userIds.length === 0) {
-    throw new Error('LINE_CHANNEL_TOKEN and LINE_USER_ID must be set in .env');
-  }
-
-  // Use multicast when multiple recipients, push when single
-  const endpoint = userIds.length > 1 ? '/v2/bot/message/multicast' : '/v2/bot/message/push';
-  const body = userIds.length > 1
-    ? JSON.stringify({ to: userIds, messages: [{ type: 'text', text }] })
-    : JSON.stringify({ to: userIds[0], messages: [{ type: 'text', text }] });
-
+async function pushToUser(token, userId, text, attempt = 1) {
+  const body = JSON.stringify({ to: userId, messages: [{ type: 'text', text }] });
   return new Promise((resolve, reject) => {
     const req = https.request(
       {
         hostname: 'api.line.me',
-        path: endpoint,
+        path: '/v2/bot/message/push',
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -51,4 +33,44 @@ export async function pushMessage(text) {
     req.write(body);
     req.end();
   });
+}
+
+/**
+ * Send a LINE push message to all configured users.
+ * Sends individually so each user's delivery is tracked independently.
+ * Retries failed sends up to 3 times with 5s delay.
+ */
+export async function pushMessage(text) {
+  const token = process.env.LINE_CHANNEL_TOKEN;
+
+  const userIds = Object.entries(process.env)
+    .filter(([k]) => k === 'LINE_USER_ID' || k.startsWith('LINE_USER_ID_'))
+    .map(([, v]) => v)
+    .filter(Boolean);
+
+  if (!token || userIds.length === 0) {
+    throw new Error('LINE_CHANNEL_TOKEN and LINE_USER_ID must be set in .env');
+  }
+
+  process.stderr.write(`[LINE] 送出對象(${userIds.length}人): ${userIds.join(', ')}\n`);
+
+  const results = await Promise.all(userIds.map(async (userId) => {
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await pushToUser(token, userId, text);
+        process.stderr.write(`[LINE] ✅ ${userId.slice(0, 8)}... 成功 (第${attempt}次)\n`);
+        return { userId, ok: true };
+      } catch (err) {
+        process.stderr.write(`[LINE] ❌ ${userId.slice(0, 8)}... 失敗 第${attempt}次: ${err.message}\n`);
+        if (attempt < 3) await new Promise(r => setTimeout(r, 5000));
+      }
+    }
+    return { userId, ok: false };
+  }));
+
+  const failed = results.filter(r => !r.ok);
+  if (failed.length > 0) {
+    process.stderr.write(`[LINE] ⚠️ ${failed.length} 人最終失敗: ${failed.map(r => r.userId.slice(0, 8)).join(', ')}\n`);
+  }
+  return { ok: true, results };
 }
