@@ -362,8 +362,15 @@ function render(d) {
 }
 const es = new EventSource('/stream');
 es.onmessage = e => { latest = JSON.parse(e.data); render(latest); };
+// 等待連線提示（連線前每秒顯示點點動畫）
+let dots = 0;
 setInterval(() => {
-  document.getElementById('updated').textContent = '更新時間：' + new Date().toLocaleTimeString('zh-TW');
+  if (latest && latest.price) {
+    document.getElementById('updated').textContent = '更新時間：' + new Date().toLocaleTimeString('zh-TW');
+  } else {
+    dots = (dots + 1) % 4;
+    document.getElementById('updated').textContent = '⏳ 等待 TradingView 連線中' + '.'.repeat(dots);
+  }
 }, 1000);
 </script>
 </body>
