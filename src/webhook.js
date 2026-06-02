@@ -127,7 +127,7 @@ function updateSessionAccumulator(high, low) {
 }
 
 function cli(cmd) {
-  return execSync(cmd, { cwd: join(__dirname, '..'), encoding: 'utf8', timeout: 15000, stdio: ['pipe','pipe','pipe'] });
+  return execSync(cmd, { cwd: join(__dirname, '..'), encoding: 'utf8', timeout: 5000, stdio: ['pipe','pipe','pipe'] });
 }
 
 function getSessionDates() {
@@ -187,7 +187,7 @@ function getTVData() {
     };
     cacheTime = Date.now();
     return cache;
-  } catch { return cache; }
+  } catch { return cache ?? { error: 'no_connection' }; }
 }
 
 const sseClients = new Set();
@@ -339,7 +339,7 @@ function setMode(m) {
   if (latest) render(latest);
 }
 function render(d) {
-  if (!d || d.error) {
+  if (!d || d.error || !d.price) {
     document.getElementById('updated').textContent = '⏳ 等待 TradingView 連線中...';
     return;
   }
