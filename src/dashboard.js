@@ -179,7 +179,15 @@ function currentSession() {
 }
 
 function render(d) {
-  if (!d || d.error) return;
+  if (!d || d.error) {
+    document.getElementById('price').textContent = '—';
+    document.getElementById('updated').textContent = '⏳ 等待 TradingView 連線中...';
+    ['sessionLow','sessionLabel','diffSessionLow','otherHigh','otherLabel','diffOtherHigh'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.textContent = '—';
+    });
+    return;
+  }
   document.getElementById('price').textContent = fmt(d.price);
 
   const session = currentSession();
