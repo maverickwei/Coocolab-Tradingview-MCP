@@ -339,7 +339,10 @@ function setMode(m) {
   if (latest) render(latest);
 }
 function render(d) {
-  if (!d || d.error) return;
+  if (!d || d.error) {
+    document.getElementById('updated').textContent = '⏳ 等待 TradingView 連線中...';
+    return;
+  }
   document.getElementById('price').textContent          = fmt(d.price);
   document.getElementById('todayHigh').textContent      = fmt(d.todayHigh);
   document.getElementById('diffTodayHigh').innerHTML    = diff(d.price, d.todayHigh);
