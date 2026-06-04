@@ -478,6 +478,18 @@ export function startWebhookServer(port = Number(process.env.WEBHOOK_PORT ?? 300
     });
   });
 
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      const fallback = port + 1;
+      process.stderr.write(`[LINE webhook] port ${port} 被佔用，改用 ${fallback}\n`);
+      server.listen(fallback, () => {
+        process.stderr.write(`[LINE webhook] Listening on http://localhost:${fallback}/webhook\n`);
+      });
+    } else {
+      throw err;
+    }
+  });
+
   server.listen(port, () => {
     process.stderr.write(`[LINE webhook] Listening on http://localhost:${port}/webhook\n`);
     process.stderr.write(`[LINE webhook] Expose with: ngrok http ${port}\n`);
