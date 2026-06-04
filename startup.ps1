@@ -111,12 +111,12 @@ if ($pkg) {
     if ($tvExe) { Start-Process -FilePath $tvExe -ArgumentList "--remote-debugging-port=9222" }
 }
 Set-Step 1 "ok" "TradingView launched"
-Start-Sleep -Milliseconds 500
+Start-Sleep -Seconds 5; Refresh-UI
 
 # Step 3
-Set-Step 2 "running" "Waiting for CDP (max 60s)..."
+Set-Step 2 "running" "Waiting for CDP (max 90s)..."
 $cdpReady = $false
-for ($i = 0; $i -lt 30; $i++) {
+for ($i = 0; $i -lt 45; $i++) {
     Start-Sleep -Seconds 2; Refresh-UI
     try {
         $r = Invoke-WebRequest -Uri "http://localhost:9222/json/version" -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
