@@ -163,6 +163,10 @@ Start-Process "shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude"
 Set-Step 6 "ok" "Claude started"
 Start-Sleep -Milliseconds 500
 
+# Open browser
+Start-Process "http://localhost:3000"
+Start-Sleep -Milliseconds 500
+
 # Done
 $form.Text = "Startup Complete!"
 $title.Text = "*** All Services Ready ***"
