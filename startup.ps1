@@ -1,6 +1,11 @@
 # =============================================
 # 蓁蓁開機啟動腳本（含進度視窗）
 # =============================================
+# 確保在 STA 模式執行（WinForms 必要）
+if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
+    powershell -STA -ExecutionPolicy Bypass -File $MyInvocation.MyCommand.Path
+    exit
+}
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
