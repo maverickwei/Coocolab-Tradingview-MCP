@@ -107,10 +107,10 @@ Set-Step 0 "ok" "網路就緒 ✓"
 
 # Step 2：啟動 TradingView
 Set-Step 1 "running" "正在啟動 TradingView..."
-Start-Process -FilePath "C:\Program Files\nodejs\node.exe" `
-    -ArgumentList "src/cli/index.js launch" `
-    -WorkingDirectory "C:\Users\顏家涵\Coocolab-Tradingview-MCP" `
-    -WindowStyle Hidden
+Stop-Process -Name "TradingView" -Force -ErrorAction SilentlyContinue
+Start-Sleep -Seconds 2
+Start-Process -FilePath "C:\Users\顏家涵\AppData\Local\TradingView\TradingView.exe" `
+    -ArgumentList "--remote-debugging-port=9222"
 Set-Step 1 "ok" "TradingView 啟動指令已送出"
 
 # Step 3：等待 CDP 就緒
