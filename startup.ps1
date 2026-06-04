@@ -104,8 +104,12 @@ Start-Sleep -Milliseconds 500
 Set-Step 1 "running" "Launching TradingView..."
 Stop-Process -Name "TradingView" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2; Refresh-UI
-$tvPath = "$env:LOCALAPPDATA\TradingView\TradingView.exe"
-Start-Process -FilePath $tvPath -ArgumentList "--remote-debugging-port=9222"
+# Find real TradingView exe in WindowsApps
+$pkg = Get-AppxPackage -Name "TradingView.Desktop" -ErrorAction SilentlyContinue
+if ($pkg) {
+    $tvExe = Get-ChildItem -Path $pkg.InstallLocation -Filter "TradingView.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
+    if ($tvExe) { Start-Process -FilePath $tvExe -ArgumentList "--remote-debugging-port=9222" }
+}
 Set-Step 1 "ok" "TradingView launched"
 Start-Sleep -Milliseconds 500
 
