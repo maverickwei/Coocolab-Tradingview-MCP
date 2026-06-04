@@ -173,8 +173,27 @@ Set-Step 6 "ok" "Claude 已啟動 ✓"
 $form.Text   = "蓁蓁系統啟動完成 🎉"
 $title.Text  = "🎉  蓁蓁系統已就緒"
 $title.ForeColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
-$status.Text = "所有服務啟動完成！視窗將在 5 秒後自動關閉。"
+$status.Text = "所有服務啟動完成！按「關閉」或等 30 秒自動關閉。"
 [System.Windows.Forms.Application]::DoEvents()
 
-Start-Sleep -Seconds 5
-$form.Close()
+# 加入關閉按鈕
+$closeBtn = New-Object System.Windows.Forms.Button
+$closeBtn.Text      = "關閉"
+$closeBtn.Font      = New-Object System.Drawing.Font("Microsoft JhengHei UI", 10, [System.Drawing.FontStyle]::Bold)
+$closeBtn.BackColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
+$closeBtn.ForeColor = [System.Drawing.Color]::Black
+$closeBtn.FlatStyle = "Flat"
+$closeBtn.Location  = New-Object System.Drawing.Point(170, 330)
+$closeBtn.Size      = New-Object System.Drawing.Size(120, 36)
+$closeBtn.Add_Click({ $form.Close() })
+$form.Controls.Add($closeBtn)
+[System.Windows.Forms.Application]::DoEvents()
+
+# 30 秒倒數自動關閉
+for ($i = 30; $i -gt 0; $i--) {
+    Start-Sleep -Seconds 1
+    $status.Text = "所有服務啟動完成！$i 秒後自動關閉。"
+    [System.Windows.Forms.Application]::DoEvents()
+    if (-not $form.Visible) { break }
+}
+if ($form.Visible) { $form.Close() }
