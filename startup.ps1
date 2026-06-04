@@ -1,12 +1,8 @@
 # =============================================
 # 蓁蓁開機啟動腳本（含進度視窗）
 # =============================================
-# 確保在 STA 模式執行（WinForms 必要）
-if ([System.Threading.Thread]::CurrentThread.ApartmentState -ne 'STA') {
-    powershell -STA -ExecutionPolicy Bypass -File $MyInvocation.MyCommand.Path
-    exit
-}
 Add-Type -AssemblyName System.Windows.Forms
+"$(Get-Date -Format 'HH:mm:ss')  startup.ps1 開始執行" | Out-File "C:\Users\顏家涵\Coocolab-Tradingview-MCP\startup.log" -Append
 Add-Type -AssemblyName System.Drawing
 
 # ── 建立主視窗 ────────────────────────────────
