@@ -48,6 +48,15 @@ function twDateStr(offsetDays = 0) {
 
 function getTWHour() { const p = getTWParts(); return p.h * 60 + p.m; }
 
+// Convert bar UNIX timestamp (seconds) → "HH:MM" in Taiwan time
+function barTimeToHHMM(unixSec) {
+  if (!unixSec) return null;
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: 'Asia/Taipei',
+    hour: '2-digit', minute: '2-digit', hour12: false
+  }).format(new Date(unixSec * 1000));
+}
+
 const SESSION_FILE = join(__dirname, '..', 'session-data.json');
 
 function saveSession() {
@@ -156,8 +165,14 @@ function getTVData() {
     const qs = quoteRaw.indexOf('{');
     const quote = qs >= 0 ? JSON.parse(quoteRaw.substring(qs)) : null;
 
-    // Today's overall high (all sessions combined)
-    const todayHigh = todayBars.length ? Math.max(...todayBars.map(b => b.high)) : null;
+    // Today's overall high (all sessions combined) — with timestamp
+    const todayHighBar  = todayBars.length ? todayBars.reduce((a, b) => b.high > a.high ? b : a) : null;
+    const todayHigh     = todayHighBar ? todayHighBar.high : null;
+    const todayHighTime = todayHighBar ? barTimeToHHMM(todayHighBar.time) : null;
+
+    // Today's overall low — with timestamp
+    const todayLowBar   = todayBars.length ? todayBars.reduce((a, b) => b.low < a.low ? b : a) : null;
+    const todayLowTime  = todayLowBar  ? barTimeToHHMM(todayLowBar.time)  : null;
 
     // Update live historical high with current data — only ever goes up
     const candidates = [quote?.high, quote?.last, todayHigh].filter(n => n > 0);
@@ -168,19 +183,31 @@ function getTVData() {
     }
     const histHigh = liveHistHigh;
 
-    // Merge bar-derived values with stream accumulators (take best of both)
-    const bestDayLow  = [dayBars.length  ? Math.min(...dayBars.map(b => b.low))  : null, sessionDay.low ].filter(n => n !== null);
-    const bestDayHigh = [dayBars.length  ? Math.max(...dayBars.map(b => b.high)) : null, sessionDay.high].filter(n => n !== null);
-    const bestPmLow   = [pmBars.length   ? Math.min(...pmBars.map(b => b.low))   : null, sessionPm.low  ].filter(n => n !== null);
-    const bestPmHigh  = [pmBars.length   ? Math.max(...pmBars.map(b => b.high))  : null, sessionPm.high ].filter(n => n !== null);
+    // Bar-derived high/low with timestamps
+    const dayHighBar = dayBars.length ? dayBars.reduce((a, b) => b.high > a.high ? b : a) : null;
+    const dayLowBar  = dayBars.length ? dayBars.reduce((a, b) => b.low  < a.low  ? b : a) : null;
+    const pmHighBar  = pmBars.length  ? pmBars.reduce((a,  b) => b.high > a.high ? b : a) : null;
+    const pmLowBar   = pmBars.length  ? pmBars.reduce((a,  b) => b.low  < a.low  ? b : a) : null;
+
+    let dayHigh = dayHighBar?.high ?? null, dayHighTime = dayHighBar ? barTimeToHHMM(dayHighBar.time) : null;
+    let dayLow  = dayLowBar?.low   ?? null, dayLowTime  = dayLowBar  ? barTimeToHHMM(dayLowBar.time)  : null;
+    let pmHigh  = pmHighBar?.high  ?? null, pmHighTime  = pmHighBar  ? barTimeToHHMM(pmHighBar.time)  : null;
+    let pmLow   = pmLowBar?.low    ?? null, pmLowTime   = pmLowBar   ? barTimeToHHMM(pmLowBar.time)   : null;
+
+    // Merge with stream accumulators (accumulators don't carry timestamps)
+    if (sessionDay.high !== null && (dayHigh === null || sessionDay.high > dayHigh)) { dayHigh = sessionDay.high; dayHighTime = null; }
+    if (sessionDay.low  !== null && (dayLow  === null || sessionDay.low  < dayLow))  { dayLow  = sessionDay.low;  dayLowTime  = null; }
+    if (sessionPm.high  !== null && (pmHigh  === null || sessionPm.high  > pmHigh))  { pmHigh  = sessionPm.high;  pmHighTime  = null; }
+    if (sessionPm.low   !== null && (pmLow   === null || sessionPm.low   < pmLow))   { pmLow   = sessionPm.low;   pmLowTime   = null; }
 
     cache = {
-      price:     quote?.last ?? data.close,
-      dayLow:    bestDayLow.length  ? Math.min(...bestDayLow)  : null,
-      dayHigh:   bestDayHigh.length ? Math.max(...bestDayHigh) : null,
-      pmLow:     bestPmLow.length   ? Math.min(...bestPmLow)   : null,
-      pmHigh:    bestPmHigh.length  ? Math.max(...bestPmHigh)  : null,
-      todayHigh,
+      price:        quote?.last ?? data.close,
+      dayLow,  dayLowTime,
+      dayHigh, dayHighTime,
+      pmLow,   pmLowTime,
+      pmHigh,  pmHighTime,
+      todayHigh, todayHighTime,
+      todayLowTime,
       histHigh,
       symbol: 'TXFM2026',
       updated: new Date().toLocaleTimeString('en-GB'),
@@ -319,6 +346,11 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 <script>
 let latest = null, mode = 'long';
 function fmt(n) { return n != null ? Number(n).toLocaleString() : '—'; }
+function fmtWithTime(n, t) {
+  if (n == null) return '—';
+  const ts = t ? ' <span style="font-size:0.78rem;color:#8b949e;font-weight:normal;margin-left:4px">' + t + '</span>' : '';
+  return Number(n).toLocaleString() + ts;
+}
 function diff(price, level) {
   if (price == null || level == null) return '<span class="na">—</span>';
   const d = price - level, cls = d >= 0 ? 'diff-pos' : 'diff-neg';
@@ -344,20 +376,21 @@ function render(d) {
     return;
   }
   document.getElementById('price').textContent          = fmt(d.price);
-  document.getElementById('todayHigh').textContent      = fmt(d.todayHigh);
+  document.getElementById('todayHigh').innerHTML        = fmtWithTime(d.todayHigh, d.todayHighTime);
   document.getElementById('diffTodayHigh').innerHTML    = diff(d.price, d.todayHigh);
   document.getElementById('histHigh').textContent       = fmt(d.histHigh);
   document.getElementById('diffHistHigh').innerHTML     = diff(d.price, d.histHigh);
   const isDay = currentSession() === 'day';
-  const low = isDay ? d.dayLow : d.pmLow, high = isDay ? d.dayHigh : d.pmHigh;
+  const low = isDay ? d.dayLow : d.pmLow, lowTime = isDay ? d.dayLowTime : d.pmLowTime;
+  const high = isDay ? d.dayHigh : d.pmHigh, highTime = isDay ? d.dayHighTime : d.pmHighTime;
   const label = isDay ? '🌅 日盤' : '🌆 下午盤', range = isDay ? '08:45–13:45' : '15:00–';
   document.getElementById('sessionLabel').textContent = label + ' 當前盤';
   document.getElementById('sessionName').textContent  = range;
-  document.getElementById('sessionLow').textContent   = low  ? fmt(low)  : '尚無資料';
+  document.getElementById('sessionLow').innerHTML     = low  ? fmtWithTime(low,  lowTime)  : '尚無資料';
   document.getElementById('diffSessionLow').innerHTML = diff(d.price, low);
   document.getElementById('otherLabel').textContent   = label + ' 當前盤';
   document.getElementById('otherName').textContent    = range;
-  document.getElementById('otherHigh').textContent    = high ? fmt(high) : '尚無資料';
+  document.getElementById('otherHigh').innerHTML      = high ? fmtWithTime(high, highTime) : '尚無資料';
   document.getElementById('diffOtherHigh').innerHTML  = diff(d.price, high);
 }
 const es = new EventSource('/stream');
@@ -385,6 +418,7 @@ setInterval(() => {
  *   Message    : 🔔 蓁蓁買進訊號觸發！商品：{{ticker}} 價格：{{close}} 時間：{{time}}
  */
 export function startWebhookServer(port = Number(process.env.WEBHOOK_PORT ?? 3000)) {
+  let currentPort = port;
   const server = http.createServer(async (req, res) => {
     // Health probe
     if (req.method === 'GET' && req.url === '/health') {
@@ -480,19 +514,20 @@ export function startWebhookServer(port = Number(process.env.WEBHOOK_PORT ?? 300
 
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
-      const fallback = port + 1;
-      process.stderr.write(`[LINE webhook] port ${port} 被佔用，改用 ${fallback}\n`);
-      server.listen(fallback, () => {
-        process.stderr.write(`[LINE webhook] Listening on http://localhost:${fallback}/webhook\n`);
+      currentPort++;
+      process.stderr.write(`[LINE webhook] port ${currentPort - 1} 被佔用，改用 ${currentPort}\n`);
+      server.listen(currentPort, () => {
+        process.stderr.write(`[LINE webhook] Listening on http://localhost:${currentPort}/webhook\n`);
+        process.stderr.write(`[LINE webhook] Expose with: ngrok http ${currentPort}\n`);
       });
     } else {
       throw err;
     }
   });
 
-  server.listen(port, () => {
-    process.stderr.write(`[LINE webhook] Listening on http://localhost:${port}/webhook\n`);
-    process.stderr.write(`[LINE webhook] Expose with: ngrok http ${port}\n`);
+  server.listen(currentPort, () => {
+    process.stderr.write(`[LINE webhook] Listening on http://localhost:${currentPort}/webhook\n`);
+    process.stderr.write(`[LINE webhook] Expose with: ngrok http ${currentPort}\n`);
   });
 
   return server;
