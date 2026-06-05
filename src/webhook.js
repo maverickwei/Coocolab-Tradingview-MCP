@@ -15,8 +15,8 @@ const CACHE_TTL = 3000;
 let liveHistHigh = Number(process.env.HIST_HIGH ?? 46465);
 
 // Session accumulators — track running high/low within each session
-let sessionDay = { high: null, low: null };  // 08:45–13:45
-let sessionPm  = { high: null, low: null };  // 15:00–
+let sessionDay = { high: null, highTime: null, low: null, lowTime: null };  // 08:45–13:45
+let sessionPm  = { high: null, highTime: null, low: null, lowTime: null };  // 15:00–
 // Track which session dates we've initialized for
 let lastDaySessionKey = '';
 let lastPmSessionKey  = '';
@@ -103,7 +103,7 @@ function resetSessionIfNeeded() {
 
   // Day session key = today's date (08:45–13:45)
   if (dateStr !== lastDaySessionKey && mins >= 8*60+45) {
-    sessionDay = { high: null, low: null };
+    sessionDay = { high: null, highTime: null, low: null, lowTime: null };
     lastDaySessionKey = dateStr;
   }
 
@@ -111,7 +111,7 @@ function resetSessionIfNeeded() {
   const pmKey = h < 5 ? twDateStr(-1) : dateStr;
 
   if (pmKey !== lastPmSessionKey && (mins >= 15*60 || h < 5)) {
-    sessionPm = { high: null, low: null };
+    sessionPm = { high: null, highTime: null, low: null, lowTime: null };
     lastPmSessionKey = pmKey;
     process.stderr.write(`[Dashboard] 新下午盤 pmKey=${pmKey}\n`);
   }
@@ -119,18 +119,21 @@ function resetSessionIfNeeded() {
 
 function updateSessionAccumulator(high, low) {
   resetSessionIfNeeded();
-  const mins = getTWHour();
+  const { h, m } = getTWParts();
+  const mins = h * 60 + m;
+  // 當下台北時間 HH:MM（近似本根 K 棒開始時間）
+  const nowTime = `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}`;
   const isDay = mins >= 8*60+45 && mins <= 13*60+45;
   // 下午/夜盤：15:00 以後 OR 隔天 00:00~05:00（夜盤延伸到凌晨）
   const isPm  = mins >= 15*60 || mins < 5*60;
   let updated = false;
   if (isDay) {
-    if (high && (sessionDay.high === null || high > sessionDay.high)) { sessionDay.high = high; updated = true; }
-    if (low  && (sessionDay.low  === null || low  < sessionDay.low))  { sessionDay.low  = low;  updated = true; }
+    if (high && (sessionDay.high === null || high > sessionDay.high)) { sessionDay.high = high; sessionDay.highTime = nowTime; updated = true; }
+    if (low  && (sessionDay.low  === null || low  < sessionDay.low))  { sessionDay.low  = low;  sessionDay.lowTime  = nowTime; updated = true; }
   }
   if (isPm) {
-    if (high && (sessionPm.high === null || high > sessionPm.high)) { sessionPm.high = high; updated = true; }
-    if (low  && (sessionPm.low  === null || low  < sessionPm.low))  { sessionPm.low  = low;  updated = true; }
+    if (high && (sessionPm.high === null || high > sessionPm.high)) { sessionPm.high = high; sessionPm.highTime = nowTime; updated = true; }
+    if (low  && (sessionPm.low  === null || low  < sessionPm.low))  { sessionPm.low  = low;  sessionPm.lowTime  = nowTime; updated = true; }
   }
   if (updated) saveSession();
 }
@@ -194,11 +197,11 @@ function getTVData() {
     let pmHigh  = pmHighBar?.high  ?? null, pmHighTime  = pmHighBar  ? barTimeToHHMM(pmHighBar.time)  : null;
     let pmLow   = pmLowBar?.low    ?? null, pmLowTime   = pmLowBar   ? barTimeToHHMM(pmLowBar.time)   : null;
 
-    // Merge with stream accumulators (accumulators don't carry timestamps)
-    if (sessionDay.high !== null && (dayHigh === null || sessionDay.high > dayHigh)) { dayHigh = sessionDay.high; dayHighTime = null; }
-    if (sessionDay.low  !== null && (dayLow  === null || sessionDay.low  < dayLow))  { dayLow  = sessionDay.low;  dayLowTime  = null; }
-    if (sessionPm.high  !== null && (pmHigh  === null || sessionPm.high  > pmHigh))  { pmHigh  = sessionPm.high;  pmHighTime  = null; }
-    if (sessionPm.low   !== null && (pmLow   === null || sessionPm.low   < pmLow))   { pmLow   = sessionPm.low;   pmLowTime   = null; }
+    // Merge with stream accumulators (use accumulator's tracked time when it wins)
+    if (sessionDay.high !== null && (dayHigh === null || sessionDay.high > dayHigh)) { dayHigh = sessionDay.high; dayHighTime = sessionDay.highTime ?? null; }
+    if (sessionDay.low  !== null && (dayLow  === null || sessionDay.low  < dayLow))  { dayLow  = sessionDay.low;  dayLowTime  = sessionDay.lowTime  ?? null; }
+    if (sessionPm.high  !== null && (pmHigh  === null || sessionPm.high  > pmHigh))  { pmHigh  = sessionPm.high;  pmHighTime  = sessionPm.highTime  ?? null; }
+    if (sessionPm.low   !== null && (pmLow   === null || sessionPm.low   < pmLow))   { pmLow   = sessionPm.low;   pmLowTime   = sessionPm.lowTime   ?? null; }
 
     cache = {
       price:        quote?.last ?? data.close,
