@@ -126,7 +126,9 @@ for ($i = 0; $i -lt 45; $i++) {
 if ($cdpReady) { Set-Step 2 "ok" "CDP ready"; Start-Sleep -Milliseconds 500 }
 else { Set-Step 2 "fail" "CDP timeout, continuing..."; Start-Sleep -Seconds 3; Refresh-UI }
 
-# Step 4
+# Step 4 - kill any existing port 3000 first
+$portPid = (netstat -ano | Select-String ":3000\s.*LISTENING").ToString().Trim().Split()[-1]
+if ($portPid -and $portPid -ne "0") { Stop-Process -Id $portPid -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }
 Set-Step 3 "running" "Starting monitor server..."
 $mcpDir = "$env:USERPROFILE\Coocolab-Tradingview-MCP"
 Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "src/webhook-server.js" -WorkingDirectory $mcpDir -WindowStyle Hidden
