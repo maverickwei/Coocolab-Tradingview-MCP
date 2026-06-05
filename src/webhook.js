@@ -77,13 +77,23 @@ function loadSession() {
 
     // Restore pm session if same pm session date
     if (saved.lastPmSessionKey === currentPmKey && saved.sessionPm) {
-      sessionPm = saved.sessionPm;
+      sessionPm = {
+        high:     saved.sessionPm.high     ?? null,
+        highTime: saved.sessionPm.highTime ?? null,
+        low:      saved.sessionPm.low      ?? null,
+        lowTime:  saved.sessionPm.lowTime  ?? null,
+      };
       lastPmSessionKey = saved.lastPmSessionKey;
-      process.stderr.write(`[Dashboard] 恢復 pm session: low=${sessionPm.low} high=${sessionPm.high}\n`);
+      process.stderr.write(`[Dashboard] 恢復 pm session: low=${sessionPm.low}@${sessionPm.lowTime} high=${sessionPm.high}@${sessionPm.highTime}\n`);
     }
     // Restore day session if same day
     if (saved.lastDaySessionKey === currentDayKey && saved.sessionDay) {
-      sessionDay = saved.sessionDay;
+      sessionDay = {
+        high:     saved.sessionDay.high     ?? null,
+        highTime: saved.sessionDay.highTime ?? null,
+        low:      saved.sessionDay.low      ?? null,
+        lowTime:  saved.sessionDay.lowTime  ?? null,
+      };
       lastDaySessionKey = saved.lastDaySessionKey;
     }
     // Restore historical high
@@ -156,7 +166,7 @@ function getSessionDates() {
 function getTVData() {
   if (cache && Date.now() - cacheTime < CACHE_TTL) return cache;
   try {
-    const raw = cli('node src/cli/index.js ohlcv --bars 200');
+    const raw = cli('node src/cli/index.js ohlcv --bars 500');
     const start = raw.indexOf('{');
     if (start < 0) return cache;
     const data = JSON.parse(raw.substring(start));
@@ -197,11 +207,34 @@ function getTVData() {
     let pmHigh  = pmHighBar?.high  ?? null, pmHighTime  = pmHighBar  ? barTimeToHHMM(pmHighBar.time)  : null;
     let pmLow   = pmLowBar?.low    ?? null, pmLowTime   = pmLowBar   ? barTimeToHHMM(pmLowBar.time)   : null;
 
+    // Helper: when accumulator wins but has no time, find closest bar as fallback
+    function closestBarTime(bars, targetPrice, pickHigh) {
+      if (!bars.length) return null;
+      const b = bars.reduce((a, c) => {
+        const aD = Math.abs((pickHigh ? a.high : a.low) - targetPrice);
+        const cD = Math.abs((pickHigh ? c.high : c.low) - targetPrice);
+        return cD < aD ? c : a;
+      });
+      return barTimeToHHMM(b.time);
+    }
+
     // Merge with stream accumulators (use accumulator's tracked time when it wins)
-    if (sessionDay.high !== null && (dayHigh === null || sessionDay.high > dayHigh)) { dayHigh = sessionDay.high; dayHighTime = sessionDay.highTime ?? null; }
-    if (sessionDay.low  !== null && (dayLow  === null || sessionDay.low  < dayLow))  { dayLow  = sessionDay.low;  dayLowTime  = sessionDay.lowTime  ?? null; }
-    if (sessionPm.high  !== null && (pmHigh  === null || sessionPm.high  > pmHigh))  { pmHigh  = sessionPm.high;  pmHighTime  = sessionPm.highTime  ?? null; }
-    if (sessionPm.low   !== null && (pmLow   === null || sessionPm.low   < pmLow))   { pmLow   = sessionPm.low;   pmLowTime   = sessionPm.lowTime   ?? null; }
+    if (sessionDay.high !== null && (dayHigh === null || sessionDay.high > dayHigh)) {
+      dayHigh = sessionDay.high;
+      dayHighTime = sessionDay.highTime ?? closestBarTime(dayBars, sessionDay.high, true);
+    }
+    if (sessionDay.low  !== null && (dayLow  === null || sessionDay.low  < dayLow)) {
+      dayLow  = sessionDay.low;
+      dayLowTime  = sessionDay.lowTime  ?? closestBarTime(dayBars, sessionDay.low, false);
+    }
+    if (sessionPm.high  !== null && (pmHigh  === null || sessionPm.high  > pmHigh)) {
+      pmHigh  = sessionPm.high;
+      pmHighTime  = sessionPm.highTime  ?? closestBarTime(pmBars, sessionPm.high, true);
+    }
+    if (sessionPm.low   !== null && (pmLow   === null || sessionPm.low   < pmLow)) {
+      pmLow   = sessionPm.low;
+      pmLowTime   = sessionPm.lowTime   ?? closestBarTime(pmBars, sessionPm.low, false);
+    }
 
     cache = {
       price:        quote?.last ?? data.close,
