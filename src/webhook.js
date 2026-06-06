@@ -535,7 +535,11 @@ export function startWebhookServer(port = Number(process.env.WEBHOOK_PORT ?? 300
         return;
       }
 
-      try {
+      // LINE 通知已關閉
+      process.stderr.write(`[LINE webhook] ⏸ LINE 通知已停用，訊息：${message.slice(0, 80)}\n`);
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ ok: true, note: 'LINE disabled' }));
+      if (false) try {
         await pushMessage(message);
         process.stderr.write(`[LINE webhook] ✅ Sent: ${message.slice(0, 80)}\n`);
         res.writeHead(200, { 'Content-Type': 'application/json' });
