@@ -1,9 +1,9 @@
-﻿Add-Type -AssemblyName System.Windows.Forms
+Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object System.Windows.Forms.Form
 $form.Text = "Startup..."
-$form.Size = New-Object System.Drawing.Size(480, 440)
+$form.Size = New-Object System.Drawing.Size(480, 510)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true
 $form.BackColor = [System.Drawing.Color]::FromArgb(15, 15, 26)
@@ -32,7 +32,8 @@ $stepTexts = @(
     "4. Start monitor server (port 3000)",
     "5. Wait port 3000 -> start ngrok",
     "6. Start WiFi switcher (port 8765)",
-    "7. Start Claude"
+    "7. Start LINE family bot (port 5000)",
+    "8. Start Claude"
 )
 
 $labels = @()
@@ -64,7 +65,7 @@ $status = New-Object System.Windows.Forms.Label
 $status.Text = "Initializing..."
 $status.Font = New-Object System.Drawing.Font("Consolas", 9)
 $status.ForeColor = [System.Drawing.Color]::FromArgb(126, 255, 212)
-$status.Location = New-Object System.Drawing.Point(14, 378)
+$status.Location = New-Object System.Drawing.Point(14, 414)
 $status.Size = New-Object System.Drawing.Size(440, 24)
 $form.Controls.Add($status)
 
@@ -135,7 +136,7 @@ Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "src/we
 Set-Step 3 "ok" "Monitor server started"
 Start-Sleep -Milliseconds 500
 
-# Step 5
+# Step 5 - wait port 3000, then start ngrok for port 3000 + static domain for port 5000
 Set-Step 4 "running" "Waiting port 3000..."
 $ng = $false
 for ($i = 0; $i -lt 15; $i++) {
@@ -146,7 +147,8 @@ for ($i = 0; $i -lt 15; $i++) {
 $ngrokPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.Winget.Source_8wekyb3d8bbwe\ngrok.exe"
 if ($ng) {
     Start-Process -FilePath $ngrokPath -ArgumentList "http 3000" -WindowStyle Hidden
-    Set-Step 4 "ok" "ngrok started"
+    Start-Process -FilePath $ngrokPath -ArgumentList "http --domain=pushup-removing-tribesman.ngrok-free.dev 5000" -WindowStyle Hidden
+    Set-Step 4 "ok" "ngrok started (port 3000 + 5000)"
 } else {
     Set-Step 4 "fail" "port 3000 not ready, skip ngrok"
 }
@@ -159,10 +161,17 @@ Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList $wifiSc
 Set-Step 5 "ok" "WiFi switcher started"
 Start-Sleep -Milliseconds 500
 
-# Step 7
-Set-Step 6 "running" "Starting Claude..."
+# Step 7 - LINE family bot (Python Flask, port 5000)
+Set-Step 6 "running" "Starting LINE family bot..."
+$botDir = "$env:USERPROFILE\line-family-bot"
+Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $botDir -WindowStyle Hidden
+Set-Step 6 "ok" "LINE family bot started"
+Start-Sleep -Milliseconds 500
+
+# Step 8
+Set-Step 7 "running" "Starting Claude..."
 Start-Process "shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude"
-Set-Step 6 "ok" "Claude started"
+Set-Step 7 "ok" "Claude started"
 Start-Sleep -Milliseconds 500
 
 # Open browser
@@ -181,7 +190,7 @@ $closeBtn.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.
 $closeBtn.BackColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
 $closeBtn.ForeColor = [System.Drawing.Color]::Black
 $closeBtn.FlatStyle = "Flat"
-$closeBtn.Location = New-Object System.Drawing.Point(175, 338)
+$closeBtn.Location = New-Object System.Drawing.Point(175, 444)
 $closeBtn.Size = New-Object System.Drawing.Size(120, 32)
 $closeBtn.Add_Click({ $form.Close() })
 $form.Controls.Add($closeBtn)
