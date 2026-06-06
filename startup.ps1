@@ -175,12 +175,14 @@ Start-Process "shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude"
 Set-Step 7 "ok" "Claude started"
 Start-Sleep -Milliseconds 500
 
-# Step 9 - Dyson controller + WiFi manager
-Set-Step 8 "running" "Starting Dyson + WiFi manager..."
+# Step 9 - Daikin + Dyson + WiFi manager
+Set-Step 8 "running" "Starting Daikin + Dyson + WiFi manager..."
+$daikinDir = "$env:USERPROFILE\daikin-controller"
+Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "server.js" -WorkingDirectory $daikinDir -WindowStyle Hidden
 $dysonDir = "$env:USERPROFILE\dyson-controller"
 Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
 Start-Process -FilePath "python" -ArgumentList "wifi_manager.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
-Set-Step 8 "ok" "Dyson + WiFi manager started"
+Set-Step 8 "ok" "Daikin + Dyson + WiFi manager started"
 Start-Sleep -Milliseconds 500
 
 # Open browsers
