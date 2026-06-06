@@ -33,7 +33,8 @@ $stepTexts = @(
     "5. Wait port 3000 -> start ngrok",
     "6. Start WiFi switcher (port 8765)",
     "7. Start LINE family bot (port 5000)",
-    "8. Start Claude"
+    "8. Start Claude",
+    "9. Start Dyson + WiFi manager"
 )
 
 $labels = @()
@@ -174,8 +175,17 @@ Start-Process "shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude"
 Set-Step 7 "ok" "Claude started"
 Start-Sleep -Milliseconds 500
 
-# Open browser
+# Step 9 - Dyson controller + WiFi manager
+Set-Step 8 "running" "Starting Dyson + WiFi manager..."
+$dysonDir = "$env:USERPROFILE\dyson-controller"
+Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
+Start-Process -FilePath "python" -ArgumentList "wifi_manager.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
+Set-Step 8 "ok" "Dyson + WiFi manager started"
+Start-Sleep -Milliseconds 500
+
+# Open browsers
 Start-Process "http://localhost:3000"
+Start-Process "http://localhost:8081/apps"
 Start-Sleep -Milliseconds 500
 
 # Done
