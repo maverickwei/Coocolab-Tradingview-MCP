@@ -1,8 +1,8 @@
-Add-Type -AssemblyName System.Windows.Forms
+﻿Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 
 $form = New-Object System.Windows.Forms.Form
-$form.Text = "Startup..."
+$form.Text = "系統啟動中..."
 $form.Size = New-Object System.Drawing.Size(480, 546)
 $form.StartPosition = "CenterScreen"
 $form.TopMost = $true
@@ -12,8 +12,8 @@ $form.MaximizeBox = $false
 $form.MinimizeBox = $false
 
 $title = New-Object System.Windows.Forms.Label
-$title.Text = ">> System Starting..."
-$title.Font = New-Object System.Drawing.Font("Consolas", 13, [System.Drawing.FontStyle]::Bold)
+$title.Text = ">> 系統啟動中..."
+$title.Font = New-Object System.Drawing.Font("Microsoft JhengHei", 13, [System.Drawing.FontStyle]::Bold)
 $title.ForeColor = [System.Drawing.Color]::FromArgb(88, 166, 255)
 $title.Location = New-Object System.Drawing.Point(20, 18)
 $title.Size = New-Object System.Drawing.Size(440, 36)
@@ -26,16 +26,16 @@ $sep.Size = New-Object System.Drawing.Size(480, 1)
 $form.Controls.Add($sep)
 
 $stepTexts = @(
-    "1. Wait for network",
-    "2. Connect home WiFi (蓁蓁)",
-    "3. Launch TradingView (CDP 9222)",
-    "4. Verify TradingView CDP ready",
-    "5. Start monitor server (port 3000)",
-    "6. Wait port 3000 -> start ngrok",
-    "7. Start WiFi switcher (port 8765)",
-    "8. Start LINE family bot (port 5000)",
-    "9. Start Claude",
-    "10. Start Daikin + Dyson + WiFi manager"
+    "1. 等待網路連線",
+    "2. 連線家中 WiFi (蓁蓁)",
+    "3. 啟動 TradingView (CDP 9222)",
+    "4. 確認 TradingView CDP 就緒",
+    "5. 啟動監控伺服器 (port 3000)",
+    "6. 等待 port 3000 -> 啟動 ngrok",
+    "7. 啟動 WiFi 切換器 (port 8765)",
+    "8. 啟動 LINE 家庭 bot (port 5000)",
+    "9. 啟動 Claude",
+    "10. 啟動 Daikin + Dyson + WiFi 管理 + Sony TV"
 )
 
 $labels = @()
@@ -54,7 +54,7 @@ foreach ($s in $stepTexts) {
 
     $lb = New-Object System.Windows.Forms.Label
     $lb.Text = $s
-    $lb.Font = New-Object System.Drawing.Font("Consolas", 9)
+    $lb.Font = New-Object System.Drawing.Font("Microsoft JhengHei", 9)
     $lb.ForeColor = [System.Drawing.Color]::Gray
     $lb.Location = New-Object System.Drawing.Point(58, $ypos)
     $lb.Size = New-Object System.Drawing.Size(400, 24)
@@ -64,8 +64,8 @@ foreach ($s in $stepTexts) {
 }
 
 $status = New-Object System.Windows.Forms.Label
-$status.Text = "Initializing..."
-$status.Font = New-Object System.Drawing.Font("Consolas", 9)
+$status.Text = "初始化中..."
+$status.Font = New-Object System.Drawing.Font("Microsoft JhengHei", 9)
 $status.ForeColor = [System.Drawing.Color]::FromArgb(126, 255, 212)
 $status.Location = New-Object System.Drawing.Point(14, 450)
 $status.Size = New-Object System.Drawing.Size(440, 24)
@@ -94,17 +94,17 @@ function Set-Step {
 }
 
 # Step 1
-Set-Step 0 "running" "Waiting for network..."
+Set-Step 0 "running" "等待網路連線中..."
 $t = 0
 while ($t -lt 60) {
     if (Test-Connection -ComputerName "8.8.8.8" -Count 1 -Quiet -ErrorAction SilentlyContinue) { break }
     Start-Sleep -Seconds 2; $t += 2; Refresh-UI
 }
-Set-Step 0 "ok" "Network ready"
+Set-Step 0 "ok" "網路已就緒"
 Start-Sleep -Milliseconds 500
 
 # Step 2 - Connect home WiFi (蓁蓁溫暖的家)
-Set-Step 1 "running" "Connecting to home WiFi..."
+Set-Step 1 "running" "連線家中 WiFi 中..."
 # 設定 UTF-8，確保中文 SSID 不亂碼
 $OutputEncoding = [System.Text.Encoding]::UTF8
 [Console]::OutputEncoding = [System.Text.Encoding]::UTF8
@@ -130,10 +130,10 @@ function Get-CurrentSSID {
 
 $curSSID = Get-CurrentSSID
 if ($curSSID -like "蓁蓁*") {
-    Set-Step 1 "ok" "Already on: $curSSID"
+    Set-Step 1 "ok" "已連線：$curSSID"
 } else {
     # 用 ProcessStartInfo 確保 UTF-8 傳遞中文名稱
-    $ci = [System.Diagnostics.ProcessStartInfo]::new("netsh", 'wlan connect name="蓁蓁溫暖的家"')
+    $ci = [System.Diagnostics.ProcessStartInfo]::new("netsh", 'wlan connect name="蓁蓁溫暖的家_MLO"')
     $ci.UseShellExecute = $false; $ci.RedirectStandardOutput = $true; $ci.RedirectStandardError = $true
     $ci.StandardOutputEncoding = [System.Text.Encoding]::UTF8
     $cp = [System.Diagnostics.Process]::Start($ci)
@@ -145,13 +145,13 @@ if ($curSSID -like "蓁蓁*") {
         $curSSID = Get-CurrentSSID
         if ($curSSID -like "蓁蓁*") { $wifiOk = $true; break }
     }
-    if ($wifiOk) { Set-Step 1 "ok" "Connected: $curSSID" }
-    else { Set-Step 1 "fail" "WiFi timeout, continuing..."; Start-Sleep -Seconds 2; Refresh-UI }
+    if ($wifiOk) { Set-Step 1 "ok" "已連線：$curSSID" }
+    else { Set-Step 1 "fail" "WiFi 連線逾時，繼續..."; Start-Sleep -Seconds 2; Refresh-UI }
 }
 Start-Sleep -Milliseconds 500
 
 # Step 3
-Set-Step 2 "running" "Launching TradingView..."
+Set-Step 2 "running" "啟動 TradingView 中..."
 Stop-Process -Name "TradingView" -Force -ErrorAction SilentlyContinue
 Start-Sleep -Seconds 2; Refresh-UI
 # Find real TradingView exe in WindowsApps
@@ -160,11 +160,11 @@ if ($pkg) {
     $tvExe = Get-ChildItem -Path $pkg.InstallLocation -Filter "TradingView.exe" -ErrorAction SilentlyContinue | Select-Object -First 1 -ExpandProperty FullName
     if ($tvExe) { Start-Process -FilePath $tvExe -ArgumentList "--remote-debugging-port=9222" }
 }
-Set-Step 2 "ok" "TradingView launched"
+Set-Step 2 "ok" "TradingView 已啟動"
 Start-Sleep -Seconds 5; Refresh-UI
 
 # Step 4
-Set-Step 3 "running" "Waiting for CDP (max 90s)..."
+Set-Step 3 "running" "等待 CDP 就緒 (最多 90 秒)..."
 $cdpReady = $false
 for ($i = 0; $i -lt 45; $i++) {
     Start-Sleep -Seconds 2; Refresh-UI
@@ -173,20 +173,20 @@ for ($i = 0; $i -lt 45; $i++) {
         if ($r.StatusCode -eq 200) { $cdpReady = $true; break }
     } catch {}
 }
-if ($cdpReady) { Set-Step 3 "ok" "CDP ready"; Start-Sleep -Milliseconds 500 }
-else { Set-Step 3 "fail" "CDP timeout, continuing..."; Start-Sleep -Seconds 3; Refresh-UI }
+if ($cdpReady) { Set-Step 3 "ok" "CDP 已就緒"; Start-Sleep -Milliseconds 500 }
+else { Set-Step 3 "fail" "CDP 逾時，繼續..."; Start-Sleep -Seconds 3; Refresh-UI }
 
 # Step 5 - kill any existing port 3000 first
 $portPid = (netstat -ano | Select-String ":3000\s.*LISTENING").ToString().Trim().Split()[-1]
 if ($portPid -and $portPid -ne "0") { Stop-Process -Id $portPid -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }
-Set-Step 4 "running" "Starting monitor server..."
+Set-Step 4 "running" "啟動監控伺服器中..."
 $mcpDir = "$env:USERPROFILE\Coocolab-Tradingview-MCP"
 Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "src/webhook-server.js" -WorkingDirectory $mcpDir -WindowStyle Hidden
-Set-Step 4 "ok" "Monitor server started"
+Set-Step 4 "ok" "監控伺服器已啟動"
 Start-Sleep -Milliseconds 500
 
 # Step 6 - wait port 3000, then start ngrok for port 3000 + static domain for port 5000
-Set-Step 5 "running" "Waiting port 3000..."
+Set-Step 5 "running" "等待 port 3000..."
 $ng = $false
 for ($i = 0; $i -lt 15; $i++) {
     Start-Sleep -Seconds 2; Refresh-UI
@@ -197,40 +197,42 @@ $ngrokPath = "$env:LOCALAPPDATA\Microsoft\WinGet\Packages\Ngrok.Ngrok_Microsoft.
 if ($ng) {
     Start-Process -FilePath $ngrokPath -ArgumentList "http 3000" -WindowStyle Hidden
     Start-Process -FilePath $ngrokPath -ArgumentList "http --domain=pushup-removing-tribesman.ngrok-free.dev 5000" -WindowStyle Hidden
-    Set-Step 5 "ok" "ngrok started (port 3000 + 5000)"
+    Set-Step 5 "ok" "ngrok 已啟動 (port 3000 + 5000)"
 } else {
-    Set-Step 5 "fail" "port 3000 not ready, skip ngrok"
+    Set-Step 5 "fail" "port 3000 未就緒，略過 ngrok"
 }
 Start-Sleep -Milliseconds 500
 
 # Step 7
-Set-Step 6 "running" "Starting WiFi switcher..."
+Set-Step 6 "running" "啟動 WiFi 切換器中..."
 $wifiScript = "$env:USERPROFILE\wifi-switcher\server.js"
 Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList $wifiScript -WindowStyle Hidden
-Set-Step 6 "ok" "WiFi switcher started"
+Set-Step 6 "ok" "WiFi 切換器已啟動"
 Start-Sleep -Milliseconds 500
 
 # Step 8 - LINE family bot (Python Flask, port 5000)
-Set-Step 7 "running" "Starting LINE family bot..."
+Set-Step 7 "running" "啟動 LINE 家庭 bot 中..."
 $botDir = "$env:USERPROFILE\line-family-bot"
 Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $botDir -WindowStyle Hidden
-Set-Step 7 "ok" "LINE family bot started"
+Set-Step 7 "ok" "LINE 家庭 bot 已啟動"
 Start-Sleep -Milliseconds 500
 
 # Step 9
-Set-Step 8 "running" "Starting Claude..."
+Set-Step 8 "running" "啟動 Claude 中..."
 Start-Process "shell:AppsFolder\Claude_pzs8sxrjxfjjc!Claude"
-Set-Step 8 "ok" "Claude started"
+Set-Step 8 "ok" "Claude 已啟動"
 Start-Sleep -Milliseconds 500
 
-# Step 10 - Daikin + Dyson + WiFi manager
-Set-Step 9 "running" "Starting Daikin + Dyson + WiFi manager..."
+# Step 10 - Daikin + Dyson + WiFi manager + Sony TV
+Set-Step 9 "running" "啟動 Daikin + Dyson + WiFi 管理 + Sony TV 中..."
 $daikinDir = "$env:USERPROFILE\daikin-controller"
 Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "server.js" -WorkingDirectory $daikinDir -WindowStyle Hidden
 $dysonDir = "$env:USERPROFILE\dyson-controller"
 Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
 Start-Process -FilePath "python" -ArgumentList "wifi_manager.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
-Set-Step 9 "ok" "Daikin + Dyson + WiFi manager started"
+$sonyDir = "$env:USERPROFILE\tradingview\sony-tv-control"
+Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $sonyDir -WindowStyle Hidden
+Set-Step 9 "ok" "Daikin + Dyson + WiFi 管理 + Sony TV 已啟動"
 Start-Sleep -Milliseconds 500
 
 # Open browsers
@@ -239,14 +241,14 @@ Start-Process "http://localhost:8081/apps"
 Start-Sleep -Milliseconds 500
 
 # Done
-$form.Text = "Startup Complete!"
-$title.Text = "*** All Services Ready ***"
+$form.Text = "啟動完成！"
+$title.Text = "*** 所有服務已就緒 ***"
 $title.ForeColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
 Refresh-UI
 
 $closeBtn = New-Object System.Windows.Forms.Button
-$closeBtn.Text = "Close"
-$closeBtn.Font = New-Object System.Drawing.Font("Consolas", 10, [System.Drawing.FontStyle]::Bold)
+$closeBtn.Text = "關閉"
+$closeBtn.Font = New-Object System.Drawing.Font("Microsoft JhengHei", 10, [System.Drawing.FontStyle]::Bold)
 $closeBtn.BackColor = [System.Drawing.Color]::FromArgb(63, 185, 80)
 $closeBtn.ForeColor = [System.Drawing.Color]::Black
 $closeBtn.FlatStyle = "Flat"
@@ -258,7 +260,7 @@ Refresh-UI
 
 for ($i = 30; $i -gt 0; $i--) {
     Start-Sleep -Seconds 1
-    $status.Text = "All done! Auto-close in $i sec."
+    $status.Text = "全部完成！$i 秒後自動關閉。"
     Refresh-UI
     if (-not $form.Visible) { break }
 }
