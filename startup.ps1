@@ -176,9 +176,12 @@ for ($i = 0; $i -lt 45; $i++) {
 if ($cdpReady) { Set-Step 3 "ok" "CDP 已就緒"; Start-Sleep -Milliseconds 500 }
 else { Set-Step 3 "fail" "CDP 逾時，繼續..."; Start-Sleep -Seconds 3; Refresh-UI }
 
-# Step 5 - kill any existing port 3000 first
-$portPid = (netstat -ano | Select-String ":3000\s.*LISTENING").ToString().Trim().Split()[-1]
-if ($portPid -and $portPid -ne "0") { Stop-Process -Id $portPid -Force -ErrorAction SilentlyContinue; Start-Sleep -Seconds 1 }
+# Step 5 - kill any existing port 3000 first (可能有多筆 IPv4/IPv6 監聽)
+$pids3000 = netstat -ano | Select-String ":3000\s.*LISTENING" | ForEach-Object {
+    ($_.ToString().Trim() -split '\s+')[-1]
+} | Where-Object { $_ -match '^\d+$' -and $_ -ne '0' } | Select-Object -Unique
+foreach ($p in $pids3000) { Stop-Process -Id ([int]$p) -Force -ErrorAction SilentlyContinue }
+if ($pids3000) { Start-Sleep -Seconds 1 }
 Set-Step 4 "running" "啟動監控伺服器中..."
 $mcpDir = "$env:USERPROFILE\Coocolab-Tradingview-MCP"
 Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "src/webhook-server.js" -WorkingDirectory $mcpDir -WindowStyle Hidden
@@ -230,6 +233,11 @@ Start-Process -FilePath "C:\Program Files\nodejs\node.exe" -ArgumentList "server
 $dysonDir = "$env:USERPROFILE\dyson-controller"
 Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
 Start-Process -FilePath "python" -ArgumentList "wifi_manager.py" -WorkingDirectory $dysonDir -WindowStyle Hidden
+# Sony TV (port 9000) - 先清掉舊行程，避免重開機後重複疊加
+$pids9000 = netstat -ano | Select-String ":9000\s.*LISTENING" | ForEach-Object {
+    ($_.ToString().Trim() -split '\s+')[-1]
+} | Where-Object { $_ -match '^\d+$' -and $_ -ne '0' } | Select-Object -Unique
+foreach ($p in $pids9000) { Stop-Process -Id ([int]$p) -Force -ErrorAction SilentlyContinue }
 $sonyDir = "$env:USERPROFILE\tradingview\sony-tv-control"
 Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $sonyDir -WindowStyle Hidden
 Set-Step 9 "ok" "Daikin + Dyson + WiFi 管理 + Sony TV 已啟動"
