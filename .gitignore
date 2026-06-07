@@ -1,2 +1,7 @@
 node_modules/
 .env
+
+# debug / 暫存產物
+debug-session.mjs
+session-data.json
+screenshots/
