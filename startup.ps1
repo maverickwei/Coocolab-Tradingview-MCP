@@ -105,20 +105,40 @@ Start-Sleep -Milliseconds 500
 
 # Step 2 - Connect home WiFi (蓁蓁溫暖的家)
 Set-Step 1 "running" "Connecting to home WiFi..."
+# 設定 UTF-8，確保中文 SSID 不亂碼
+$OutputEncoding = [System.Text.Encoding]::UTF8
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+chcp 65001 | Out-Null
+
 function Get-CurrentSSID {
     try {
-        $out = & netsh wlan show interfaces 2>$null
-        foreach ($line in $out) {
-            if ($line -match '^\s+SSID\s+:\s+(.+)$') { return $matches[1].Trim() }
+        $ps = [System.Diagnostics.ProcessStartInfo]::new("netsh", "wlan show interfaces")
+        $ps.UseShellExecute = $false
+        $ps.RedirectStandardOutput = $true
+        $ps.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+        $proc = [System.Diagnostics.Process]::Start($ps)
+        $out = $proc.StandardOutput.ReadToEnd()
+        $proc.WaitForExit()
+        foreach ($line in $out -split "`r?`n") {
+            if ($line -match '^\s+SSID\s+:\s+(.+)$' -and $line -notmatch 'BSSID') {
+                return $matches[1].Trim()
+            }
         }
     } catch {}
     return ""
 }
+
 $curSSID = Get-CurrentSSID
 if ($curSSID -like "蓁蓁*") {
-    Set-Step 1 "ok" "Already on home WiFi: $curSSID"
+    Set-Step 1 "ok" "Already on: $curSSID"
 } else {
-    & netsh wlan connect name="蓁蓁溫暖的家" 2>$null | Out-Null
+    # 用 ProcessStartInfo 確保 UTF-8 傳遞中文名稱
+    $ci = [System.Diagnostics.ProcessStartInfo]::new("netsh", 'wlan connect name="蓁蓁溫暖的家"')
+    $ci.UseShellExecute = $false; $ci.RedirectStandardOutput = $true; $ci.RedirectStandardError = $true
+    $ci.StandardOutputEncoding = [System.Text.Encoding]::UTF8
+    $cp = [System.Diagnostics.Process]::Start($ci)
+    $cp.WaitForExit()
+
     $wifiOk = $false
     for ($wi = 0; $wi -lt 15; $wi++) {
         Start-Sleep -Seconds 2; Refresh-UI
