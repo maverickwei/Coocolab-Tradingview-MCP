@@ -244,15 +244,30 @@ Set-Step 9 "ok" "Daikin + Dyson + WiFi 管理 + Sony TV 已啟動"
 Start-Sleep -Milliseconds 500
 
 # Open browsers - 開機後自動開啟所有控制頁面
+# 每個分頁開啟前先等該服務 port 就緒，避免開機忙碌時開到「無法連線」失敗頁
+function Test-PortReady {
+    param([int]$Port)
+    try {
+        $c = New-Object System.Net.Sockets.TcpClient
+        $iar = $c.BeginConnect("localhost", $Port, $null, $null)
+        $ok = $iar.AsyncWaitHandle.WaitOne(500)
+        if ($ok -and $c.Connected) { $c.EndConnect($iar); $c.Close(); return $true }
+        $c.Close(); return $false
+    } catch { return $false }
+}
 $pages = @(
-    "http://localhost:8765",       # 連線家中 WiFi 切換器
-    "http://localhost:3002",       # Daikin 冷氣
-    "http://localhost:9000",       # Sony TV
-    "http://localhost:8081/apps",  # WiFi 管理
-    "http://localhost:3000"        # 台指期盤中監控（最後開，會是前景分頁）
+    @{ port = 8765; url = "http://localhost:8765" },       # 連線家中 WiFi 切換器
+    @{ port = 3002; url = "http://localhost:3002" },       # Daikin 冷氣
+    @{ port = 9000; url = "http://localhost:9000" },       # Sony TV
+    @{ port = 8081; url = "http://localhost:8081/apps" },  # WiFi 管理
+    @{ port = 3000; url = "http://localhost:3000" }        # 台指期盤中監控（最後開，會是前景分頁）
 )
-foreach ($url in $pages) {
-    Start-Process $url
+foreach ($pg in $pages) {
+    for ($w = 0; $w -lt 30; $w++) {            # 最多等 ~15 秒
+        if (Test-PortReady -Port $pg.port) { break }
+        Start-Sleep -Milliseconds 500
+    }
+    Start-Process $pg.url
     Start-Sleep -Milliseconds 800
 }
 
@@ -273,6 +288,32 @@ $closeBtn.Size = New-Object System.Drawing.Size(120, 32)
 $closeBtn.Add_Click({ $form.Close() })
 $form.Controls.Add($closeBtn)
 Refresh-UI
+
+# 把瀏覽器視窗帶到最前景並最大化，開機後馬上看到網頁
+Add-Type @"
+using System;
+using System.Runtime.InteropServices;
+public class Win32Fg {
+    [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+    [DllImport("user32.dll")] public static extern bool ShowWindowAsync(IntPtr hWnd, int nCmdShow);
+}
+"@
+$form.TopMost = $false   # 完成視窗不再壓在最上層，避免蓋住瀏覽器
+Refresh-UI
+Start-Sleep -Seconds 2   # 等瀏覽器視窗建立完成
+$browserNames = @("chrome","msedge","firefox","brave","opera","vivaldi","arc")
+$wsh = New-Object -ComObject WScript.Shell
+foreach ($bn in $browserNames) {
+    $bp = Get-Process -Name $bn -ErrorAction SilentlyContinue |
+          Where-Object { $_.MainWindowHandle -ne 0 } |
+          Sort-Object StartTime -Descending | Select-Object -First 1
+    if ($bp) {
+        [Win32Fg]::ShowWindowAsync($bp.MainWindowHandle, 3) | Out-Null  # 3 = SW_MAXIMIZE
+        try { $wsh.AppActivate($bp.Id) | Out-Null } catch {}
+        [Win32Fg]::SetForegroundWindow($bp.MainWindowHandle) | Out-Null
+        break
+    }
+}
 
 for ($i = 30; $i -gt 0; $i--) {
     Start-Sleep -Seconds 1
