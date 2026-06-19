@@ -243,10 +243,18 @@ Start-Process -FilePath "python" -ArgumentList "app.py" -WorkingDirectory $sonyD
 Set-Step 9 "ok" "Daikin + Dyson + WiFi 管理 + Sony TV 已啟動"
 Start-Sleep -Milliseconds 500
 
-# Open browsers
-Start-Process "http://localhost:3000"
-Start-Process "http://localhost:8081/apps"
-Start-Sleep -Milliseconds 500
+# Open browsers - 開機後自動開啟所有控制頁面
+$pages = @(
+    "http://localhost:8765",       # 連線家中 WiFi 切換器
+    "http://localhost:3002",       # Daikin 冷氣
+    "http://localhost:9000",       # Sony TV
+    "http://localhost:8081/apps",  # WiFi 管理
+    "http://localhost:3000"        # 台指期盤中監控（最後開，會是前景分頁）
+)
+foreach ($url in $pages) {
+    Start-Process $url
+    Start-Sleep -Milliseconds 800
+}
 
 # Done
 $form.Text = "啟動完成！"
