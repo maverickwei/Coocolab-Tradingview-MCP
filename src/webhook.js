@@ -245,7 +245,7 @@ function getTVData() {
       todayHigh, todayHighTime,
       todayLowTime,
       histHigh,
-      symbol: 'TXFM2026',
+      symbol: 'TXFN2026',
       updated: new Date().toLocaleTimeString('en-GB'),
     };
     cacheTime = Date.now();
@@ -356,7 +356,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>📊 台指期 TXFM2026</h1>
+<h1>📊 台指期 TXFN2026</h1>
 <div class="updated" id="updated">載入中...</div>
 <div class="btn-group">
   <button class="btn btn-long active" id="btnLong" onclick="setMode('long')">📈 做多</button>
