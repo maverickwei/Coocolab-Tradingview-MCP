@@ -152,6 +152,36 @@ function cli(cmd) {
   return execSync(cmd, { cwd: join(__dirname, '..'), encoding: 'utf8', timeout: 5000, stdio: ['pipe','pipe','pipe'] });
 }
 
+// ── 台指期近月合約自動轉倉（結算日＝每月第三個週三，隔日轉次月）──
+const TXF_MONTH_CODE = ['F','G','H','J','K','M','N','Q','U','V','X','Z']; // 1~12月
+function thirdWednesday(year, month0) {
+  const d = new Date(year, month0, 1);
+  const firstWed = 1 + ((3 - d.getDay() + 7) % 7); // getDay: 0=日…3=三
+  return new Date(year, month0, firstWed + 14);
+}
+function frontMonthContract(now = new Date()) {
+  let y = now.getFullYear(), m = now.getMonth();
+  const settle = thirdWednesday(y, m);
+  const today0 = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  if (today0 > settle) { m++; if (m > 11) { m = 0; y++; } } // 結算日隔天起轉次月
+  return `TXF${TXF_MONTH_CODE[m]}${y}`;
+}
+// 開機時：若圖表目前掛的是某個台指期合約，且不是近月 → 自動切到近月
+function ensureFrontMonth() {
+  try {
+    const want = frontMonthContract();
+    const raw = cli('node src/cli/index.js symbol');
+    const s = raw.indexOf('{');
+    const cur = s >= 0 ? (JSON.parse(raw.substring(s)).symbol || '') : '';
+    if (/TXF[FGHJKMNQUVXZ]\d{4}/.test(cur) && !cur.includes(want)) {
+      cli(`node src/cli/index.js symbol TAIFEX:${want}`);
+      process.stderr.write(`[Dashboard] 🔄 自動轉倉：${cur} → TAIFEX:${want}\n`);
+    }
+  } catch (e) {
+    process.stderr.write(`[Dashboard] 轉倉檢查略過：${e.message}\n`);
+  }
+}
+
 function getSessionDates() {
   const { dateStr: dayDateStr, h } = getTWParts();
   const pmDateStr = h < 5 ? twDateStr(-1) : dayDateStr;
@@ -245,7 +275,7 @@ function getTVData() {
       todayHigh, todayHighTime,
       todayLowTime,
       histHigh,
-      symbol: 'TXFN2026',
+      symbol: frontMonthContract(),
       updated: new Date().toLocaleTimeString('en-GB'),
     };
     cacheTime = Date.now();
@@ -356,7 +386,7 @@ const DASHBOARD_HTML = `<!DOCTYPE html>
 </style>
 </head>
 <body>
-<h1>📊 台指期 TXFN2026</h1>
+<h1>📊 台指期 <span id="contract">—</span></h1>
 <div class="updated" id="updated">載入中...</div>
 <div class="btn-group">
   <button class="btn btn-long active" id="btnLong" onclick="setMode('long')">📈 做多</button>
@@ -411,6 +441,7 @@ function render(d) {
     document.getElementById('updated').textContent = '⏳ 等待 TradingView 連線中...';
     return;
   }
+  if (d.symbol) document.getElementById('contract').textContent = d.symbol;
   document.getElementById('price').textContent          = fmt(d.price);
   document.getElementById('todayHigh').innerHTML        = fmtWithTime(d.todayHigh, d.todayHighTime);
   document.getElementById('diffTodayHigh').innerHTML    = diff(d.price, d.todayHigh);
@@ -455,6 +486,8 @@ setInterval(() => {
  */
 export function startWebhookServer(port = Number(process.env.WEBHOOK_PORT ?? 3000)) {
   let currentPort = port;
+  // 開機自動轉倉：把圖表切到台指期近月合約（CDP 可能還沒就緒，延遲 3 秒再試）
+  setTimeout(ensureFrontMonth, 3000);
   const server = http.createServer(async (req, res) => {
     // Health probe
     if (req.method === 'GET' && req.url === '/health') {
