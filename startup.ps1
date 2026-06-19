@@ -257,7 +257,7 @@ function Test-PortReady {
 }
 $pages = @(
     @{ port = 8765; url = "http://localhost:8765" },       # 連線家中 WiFi 切換器
-    @{ port = 3002; url = "http://localhost:3002" },       # Daikin 冷氣
+    @{ port = 2999; url = "http://localhost:2999" },       # Daikin 冷氣（.env 設 PORT=2999）
     @{ port = 9000; url = "http://localhost:9000" },       # Sony TV
     @{ port = 8081; url = "http://localhost:8081/apps" },  # WiFi 管理
     @{ port = 3000; url = "http://localhost:3000" }        # 台指期盤中監控（最後開，會是前景分頁）
